@@ -3,9 +3,180 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
+
+var safeNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// getTreePath returns the filesystem path for a tree's JSON file
+func (s *MTServer) getTreePath(treeName string) (string, error) {
+	if !safeNameRegex.MatchString(treeName) {
+		return "", fmt.Errorf("invalid tree name: must contain only alphanumeric, underscore, or hyphen characters")
+	}
+	treesDir := filepath.Join(s.dataDir, "trees")
+	return filepath.Join(treesDir, treeName+".json"), nil
+}
+
+// initPersistence creates the trees directory and loads existing trees
+func (s *MTServer) initPersistence() error {
+	treesDir := filepath.Join(s.dataDir, "trees")
+	if err := os.MkdirAll(treesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create trees directory: %w", err)
+	}
+
+	// Load existing trees
+	entries, err := os.ReadDir(treesDir)
+	if err != nil {
+		return fmt.Errorf("failed to read trees directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		treeName := strings.TrimSuffix(entry.Name(), ".json")
+		if err := s.loadTree(treeName); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to load tree %s: %v\n", treeName, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+// loadTree loads a tree from disk
+func (s *MTServer) loadTree(treeName string) error {
+	path, err := s.getTreePath(treeName)
+	if err != nil {
+		return err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read tree file: %w", err)
+	}
+
+	// Validate JSON
+	var testParse any
+	if err := json.Unmarshal(data, &testParse); err != nil {
+		return fmt.Errorf("invalid JSON in tree file: %w", err)
+	}
+
+	s.trees[treeName] = &MemoryTree{
+		Name: treeName,
+		Data: json.RawMessage(data),
+	}
+
+	return nil
+}
+
+// saveTree atomically saves a tree to disk
+func (s *MTServer) saveTree(treeName string) error {
+	tree, exists := s.trees[treeName]
+	if !exists {
+		return fmt.Errorf("tree not found: %s", treeName)
+	}
+
+	path, err := s.getTreePath(treeName)
+	if err != nil {
+		return err
+	}
+
+	// Write to temporary file
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, tree.Data, 0644); err != nil {
+		return fmt.Errorf("failed to write tree file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath) // Clean up temp file
+		return fmt.Errorf("failed to rename tree file: %w", err)
+	}
+
+	return nil
+}
+
+// deleteTreeFile removes a tree's file from disk
+func (s *MTServer) deleteTreeFile(treeName string) error {
+	path, err := s.getTreePath(treeName)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete tree file: %w", err)
+	}
+
+	return nil
+}
+
+// markDirty marks a tree as needing to be saved (periodic mode only)
+func (s *MTServer) markDirty(treeName string) {
+	if s.saveMode != "periodic" {
+		return
+	}
+
+	s.dirtyTrees[treeName] = true
+
+	// Reset the 5-second debounce timer
+	if !s.saveTimer.Stop() {
+		select {
+		case <-s.saveTimer.C:
+		default:
+		}
+	}
+	s.saveTimer.Reset(5 * time.Second)
+}
+
+// periodicSaveLoop runs in the background and saves dirty trees periodically
+func (s *MTServer) periodicSaveLoop() {
+	defer s.wg.Done()
+
+	for {
+		select {
+		case <-s.shutdownCh:
+			return
+		case <-s.saveTimer.C:
+			s.saveDirtyTrees()
+		case <-s.saveTicker.C:
+			s.saveDirtyTrees()
+		}
+	}
+}
+
+// saveDirtyTrees saves all trees marked as dirty
+func (s *MTServer) saveDirtyTrees() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.saveDirtyTreesLocked()
+}
+
+// saveDirtyTreesLocked saves dirty trees without acquiring the lock
+func (s *MTServer) saveDirtyTreesLocked() error {
+	if len(s.dirtyTrees) == 0 {
+		return nil
+	}
+
+	var lastErr error
+	for treeName := range s.dirtyTrees {
+		if err := s.saveTree(treeName); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving tree %s: %v\n", treeName, err)
+			lastErr = err
+		}
+	}
+
+	// Clear dirty flags after attempting to save
+	s.dirtyTrees = make(map[string]bool)
+
+	return lastErr
+}
 
 // execJQ executes jq with input and filter, returns output
 func (s *MTServer) execJQ(input []byte, filter string) ([]byte, error) {
@@ -66,6 +237,12 @@ func (s *MTServer) createTree(tree string, data json.RawMessage) error {
 		data = json.RawMessage("{}")
 	}
 	s.trees[tree] = &MemoryTree{Name: tree, Data: data}
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
+	}
+	s.markDirty(tree)
 	return nil
 }
 
@@ -77,6 +254,15 @@ func (s *MTServer) deleteTree(tree string) error {
 		return fmt.Errorf("tree not found: %s", tree)
 	}
 	delete(s.trees, tree)
+	
+	// Delete from disk
+	if err := s.deleteTreeFile(tree); err != nil {
+		return err
+	}
+	
+	// Remove from dirty set if present
+	delete(s.dirtyTrees, tree)
+	
 	return nil
 }
 
@@ -121,7 +307,16 @@ func (s *MTServer) getUnlocked(tree, path string) (json.RawMessage, error) {
 func (s *MTServer) set(tree, path string, value json.RawMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.setUnlocked(tree, path, value)
+	if err := s.setUnlocked(tree, path, value); err != nil {
+		return err
+	}
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
+	}
+	s.markDirty(tree)
+	return nil
 }
 
 // setUnlocked performs set without acquiring lock (for internal use)
@@ -147,7 +342,16 @@ func (s *MTServer) setUnlocked(tree, path string, value json.RawMessage) error {
 func (s *MTServer) delete(tree, path string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.deleteUnlocked(tree, path)
+	if err := s.deleteUnlocked(tree, path); err != nil {
+		return err
+	}
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
+	}
+	s.markDirty(tree)
+	return nil
 }
 
 // deleteUnlocked performs delete without acquiring lock (for internal use)
@@ -208,7 +412,16 @@ func (s *MTServer) append(tree, path string, value json.RawMessage, window int) 
 
 	// Marshal back
 	newArr, _ := json.Marshal(arr)
-	return s.setUnlocked(tree, path, json.RawMessage(newArr))
+	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
+		return err
+	}
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
+	}
+	s.markDirty(tree)
+	return nil
 }
 
 // prepend adds items to beginning of array at path with optional window limit
@@ -248,7 +461,16 @@ func (s *MTServer) prepend(tree, path string, value json.RawMessage, window int)
 
 	// Marshal back
 	newArr, _ := json.Marshal(arr)
-	return s.setUnlocked(tree, path, json.RawMessage(newArr))
+	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
+		return err
+	}
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
+	}
+	s.markDirty(tree)
+	return nil
 }
 
 // transform applies jq filter to source path and stores result at target path
@@ -279,15 +501,20 @@ func (s *MTServer) transform(tree, targetPath, sourcePath, filter string) error 
 	// Set at target path
 	if targetPath == "" || targetPath == "." {
 		t.Data = json.RawMessage(result)
-		return nil
+	} else {
+		resultStr := string(result)
+		newData, err := jqSet(t.Data, targetPath, resultStr)
+		if err != nil {
+			return err
+		}
+		t.Data = json.RawMessage(newData)
 	}
-
-	resultStr := string(result)
-	newData, err := jqSet(t.Data, targetPath, resultStr)
-	if err != nil {
-		return err
+	
+	// Persist immediately or mark dirty
+	if s.saveMode == "immediate" {
+		return s.saveTree(tree)
 	}
-	t.Data = json.RawMessage(newData)
+	s.markDirty(tree)
 	return nil
 }
 

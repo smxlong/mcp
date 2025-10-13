@@ -17,15 +17,16 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM debian:trixie-slim AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tini && rm -rf /var/lib/apt/lists/*
-
 ENV DATA_DIR=/data
 RUN mkdir -p $DATA_DIR
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tini && rm -rf /var/lib/apt/lists/*
 
 ######################## mt image
 
 FROM runtime AS mt
+
+ENV SAVE_MODE=periodic
 
 COPY --from=builder /go/bin/mt /usr/local/bin/mt
 

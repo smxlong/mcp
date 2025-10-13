@@ -3,12 +3,29 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Helper function to create test server with temp directory
+func newTestServer(t *testing.T) (*MTServer, func()) {
+	tmpDir, err := os.MkdirTemp("", "mt-test-*")
+	require.NoError(t, err, "Failed to create temp directory")
+	
+	server, err := NewMTServer(tmpDir, "immediate")
+	require.NoError(t, err, "Failed to create server")
+	
+	cleanup := func() {
+		server.Shutdown()
+		os.RemoveAll(tmpDir)
+	}
+	
+	return server, cleanup
+}
 
 // Helper function to create test request
 func makeRequest(operation string, params map[string]any) mcp.CallToolRequest {
@@ -36,7 +53,8 @@ func extractData(t *testing.T, result *mcp.CallToolResult) map[string]any {
 }
 
 func TestCreateTree(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("create empty tree", func(t *testing.T) {
@@ -82,7 +100,8 @@ func TestCreateTree(t *testing.T) {
 }
 
 func TestDeleteTree(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("delete existing tree", func(t *testing.T) {
@@ -114,7 +133,8 @@ func TestDeleteTree(t *testing.T) {
 }
 
 func TestListTrees(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("list multiple trees", func(t *testing.T) {
@@ -136,7 +156,8 @@ func TestListTrees(t *testing.T) {
 }
 
 func TestGetAndSet(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("set and get simple value", func(t *testing.T) {
@@ -225,7 +246,8 @@ func TestGetAndSet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("delete key from object", func(t *testing.T) {
@@ -260,7 +282,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestAppend(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("append single item to array", func(t *testing.T) {
@@ -349,7 +372,8 @@ func TestAppend(t *testing.T) {
 }
 
 func TestPrepend(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("prepend single item to array", func(t *testing.T) {
@@ -411,7 +435,8 @@ func TestPrepend(t *testing.T) {
 }
 
 func TestTransform(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("transform with map operation", func(t *testing.T) {
@@ -485,7 +510,8 @@ func TestTransform(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("query with aggregation", func(t *testing.T) {
@@ -543,7 +569,8 @@ func TestQuery(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("missing operation parameter", func(t *testing.T) {
@@ -600,7 +627,8 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
-	server := NewMTServer()
+	server, cleanup := newTestServer(t)
+	defer cleanup()
 	ctx := context.Background()
 
 	t.Run("concurrent append operations", func(t *testing.T) {
@@ -689,5 +717,122 @@ func TestConcurrency(t *testing.T) {
 		result, err := server.handleMT(ctx, req)
 		require.NoError(t, err, "Should handle concurrent mixed operations")
 		require.False(t, result.IsError, "Should not corrupt tree state")
+	})
+}
+
+func TestPersistence(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "mt-persist-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+	ctx := context.Background()
+
+	t.Run("immediate mode - data persisted immediately", func(t *testing.T) {
+		// Create server in immediate mode
+		server, err := NewMTServer(tmpDir, "immediate")
+		require.NoError(t, err)
+		
+		// Create and modify tree
+		server.handleMT(ctx, makeRequest("create_tree", map[string]any{
+			"tree": "test1",
+			"data": map[string]any{"counter": 0},
+		}))
+		server.handleMT(ctx, makeRequest("set", map[string]any{
+			"tree":  "test1",
+			"path":  ".counter",
+			"value": 42,
+		}))
+		
+		// Shutdown and create new server instance
+		server.Shutdown()
+		
+		server2, err := NewMTServer(tmpDir, "immediate")
+		require.NoError(t, err)
+		defer server2.Shutdown()
+		
+		// Verify data was loaded
+		result, err := server2.handleMT(ctx, makeRequest("get", map[string]any{
+			"tree": "test1",
+			"path": ".counter",
+		}))
+		require.NoError(t, err)
+		parsed := extractData(t, result)
+		assert.Equal(t, float64(42), parsed["data"])
+	})
+
+	t.Run("periodic mode - data persisted on timer", func(t *testing.T) {
+		tmpDir2, err := os.MkdirTemp("", "mt-periodic-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir2)
+		
+		server, err := NewMTServer(tmpDir2, "periodic")
+		require.NoError(t, err)
+		
+		// Create tree
+		server.handleMT(ctx, makeRequest("create_tree", map[string]any{
+			"tree": "test2",
+			"data": map[string]any{"value": "initial"},
+		}))
+		
+		// Modify data
+		server.handleMT(ctx, makeRequest("set", map[string]any{
+			"tree":  "test2",
+			"path":  ".value",
+			"value": "updated",
+		}))
+		
+		// Shutdown (triggers final flush)
+		server.Shutdown()
+		
+		// Create new server and verify
+		server2, err := NewMTServer(tmpDir2, "periodic")
+		require.NoError(t, err)
+		defer server2.Shutdown()
+		
+		result, err := server2.handleMT(ctx, makeRequest("get", map[string]any{
+			"tree": "test2",
+			"path": ".value",
+		}))
+		require.NoError(t, err)
+		parsed := extractData(t, result)
+		assert.Equal(t, "updated", parsed["data"])
+	})
+
+	t.Run("delete removes file", func(t *testing.T) {
+		tmpDir3, err := os.MkdirTemp("", "mt-delete-*")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir3)
+		
+		server, err := NewMTServer(tmpDir3, "immediate")
+		require.NoError(t, err)
+		
+		// Create and then delete tree
+		server.handleMT(ctx, makeRequest("create_tree", map[string]any{"tree": "temp"}))
+		server.handleMT(ctx, makeRequest("delete_tree", map[string]any{"tree": "temp"}))
+		
+		server.Shutdown()
+		
+		// Create new server - tree should not exist
+		server2, err := NewMTServer(tmpDir3, "immediate")
+		require.NoError(t, err)
+		defer server2.Shutdown()
+		
+		result, err := server2.handleMT(ctx, makeRequest("list_trees", map[string]any{}))
+		require.NoError(t, err)
+		parsed := extractData(t, result)
+		trees := parsed["trees"].([]any)
+		assert.Equal(t, 0, len(trees))
+	})
+
+	t.Run("invalid tree names rejected", func(t *testing.T) {
+		server, err := NewMTServer(tmpDir, "immediate")
+		require.NoError(t, err)
+		defer server.Shutdown()
+		
+		// Try to create tree with invalid characters
+		result, err := server.handleMT(ctx, makeRequest("create_tree", map[string]any{
+			"tree": "../../../etc/passwd",
+		}))
+		require.NoError(t, err)
+		assert.True(t, result.IsError, "Should reject invalid tree name")
 	})
 }
