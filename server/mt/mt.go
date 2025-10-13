@@ -70,7 +70,7 @@ func NewMTServer(dataDir, saveMode string) (*MTServer, error) {
 func (s *MTServer) Shutdown() error {
 	close(s.shutdownCh)
 	s.wg.Wait()
-	
+
 	// Final save of any dirty trees
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -82,7 +82,7 @@ func main() {
 	if dataDir == "" {
 		dataDir = "./data"
 	}
-	
+
 	saveMode := os.Getenv("SAVE_MODE")
 	if saveMode == "" {
 		saveMode = "periodic"
@@ -97,7 +97,7 @@ func main() {
 	// Setup graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -129,7 +129,7 @@ func main() {
 		mtServer.Shutdown()
 		os.Exit(1)
 	}
-	
+
 	// Ensure clean shutdown
 	mtServer.Shutdown()
 }

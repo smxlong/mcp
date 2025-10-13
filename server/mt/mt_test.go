@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -15,15 +16,15 @@ import (
 func newTestServer(t *testing.T) (*MTServer, func()) {
 	tmpDir, err := os.MkdirTemp("", "mt-test-*")
 	require.NoError(t, err, "Failed to create temp directory")
-	
+
 	server, err := NewMTServer(tmpDir, "immediate")
 	require.NoError(t, err, "Failed to create server")
-	
+
 	cleanup := func() {
 		server.Shutdown()
 		os.RemoveAll(tmpDir)
 	}
-	
+
 	return server, cleanup
 }
 
@@ -41,14 +42,14 @@ func makeRequest(operation string, params map[string]any) mcp.CallToolRequest {
 func extractData(t *testing.T, result *mcp.CallToolResult) map[string]any {
 	require.False(t, result.IsError, "Tool result should not be an error")
 	require.NotEmpty(t, result.Content, "Tool result should have content")
-	
+
 	content, ok := result.Content[0].(mcp.TextContent)
 	require.True(t, ok, "Content should be TextContent type")
-	
+
 	var parsed map[string]any
 	err := json.Unmarshal([]byte(content.Text), &parsed)
 	require.NoError(t, err, "Should parse JSON result")
-	
+
 	return parsed
 }
 
@@ -62,10 +63,10 @@ func TestCreateTree(t *testing.T) {
 			"tree": "test",
 		})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return error")
 		require.False(t, result.IsError, "Should not return error result")
-		
+
 		// Verify tree exists in server state
 		server.mu.RLock()
 		_, exists := server.trees["test"]
@@ -80,17 +81,17 @@ func TestCreateTree(t *testing.T) {
 			"data": initialData,
 		})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return error")
 		require.False(t, result.IsError, "Should not return error result")
-		
+
 		// Verify data was stored correctly
 		server.mu.RLock()
 		tree, exists := server.trees["test_with_data"]
 		server.mu.RUnlock()
-		
+
 		require.True(t, exists, "Tree should exist")
-		
+
 		var stored map[string]any
 		err = json.Unmarshal(tree.Data, &stored)
 		require.NoError(t, err, "Should parse stored data")
@@ -112,10 +113,10 @@ func TestDeleteTree(t *testing.T) {
 		// Delete it
 		req = makeRequest("delete_tree", map[string]any{"tree": "to_delete"})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return error")
 		require.False(t, result.IsError, "Should not return error result")
-		
+
 		// Verify it's gone
 		server.mu.RLock()
 		_, exists := server.trees["to_delete"]
@@ -126,7 +127,7 @@ func TestDeleteTree(t *testing.T) {
 	t.Run("delete non-existent tree", func(t *testing.T) {
 		req := makeRequest("delete_tree", map[string]any{"tree": "nonexistent"})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for non-existent tree")
 	})
@@ -145,10 +146,10 @@ func TestListTrees(t *testing.T) {
 
 		req := makeRequest("list_trees", map[string]any{})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return error")
 		parsed := extractData(t, result)
-		
+
 		trees, ok := parsed["trees"].([]any)
 		require.True(t, ok, "Should have trees array")
 		assert.Equal(t, 2, len(trees), "Should list both trees")
@@ -181,7 +182,7 @@ func TestGetAndSet(t *testing.T) {
 		})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		assert.Equal(t, "John", parsed["data"], "Should retrieve the set value")
 	})
@@ -206,11 +207,11 @@ func TestGetAndSet(t *testing.T) {
 		})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get root should not error")
-		
+
 		parsed := extractData(t, result)
 		data, ok := parsed["data"].(map[string]any)
 		require.True(t, ok, "Data should be an object")
-		
+
 		user, ok := data["user"].(map[string]any)
 		require.True(t, ok, "User should be an object")
 		assert.Equal(t, float64(30), user["age"], "Should have nested age value")
@@ -234,11 +235,11 @@ func TestGetAndSet(t *testing.T) {
 		req := makeRequest("get", map[string]any{"tree": "multi", "path": "."})
 		result, err := server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		data, ok := parsed["data"].(map[string]any)
 		require.True(t, ok, "Data should be an object")
-		
+
 		assert.Equal(t, "Alice", data["name"], "Should have name")
 		assert.Equal(t, float64(25), data["age"], "Should have age")
 		assert.Equal(t, true, data["active"], "Should have active flag")
@@ -269,11 +270,11 @@ func TestDelete(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test", "path": "."})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		data, ok := parsed["data"].(map[string]any)
 		require.True(t, ok, "Data should be an object")
-		
+
 		_, exists := data["b"]
 		assert.False(t, exists, "Key 'b' should be deleted")
 		assert.Equal(t, float64(1), data["a"], "Key 'a' should remain")
@@ -306,7 +307,7 @@ func TestAppend(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test", "path": ".items"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -333,7 +334,7 @@ func TestAppend(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test2", "path": ".items"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -360,7 +361,7 @@ func TestAppend(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test3", "path": ".items"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -395,7 +396,7 @@ func TestPrepend(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test", "path": ".items"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -423,7 +424,7 @@ func TestPrepend(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test2", "path": ".items"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -465,7 +466,7 @@ func TestTransform(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test", "path": ".names"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		names, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -501,7 +502,7 @@ func TestTransform(t *testing.T) {
 		req = makeRequest("get", map[string]any{"tree": "test2", "path": ".adults"})
 		result, err = server.handleMT(ctx, req)
 		require.NoError(t, err, "Get should not error")
-		
+
 		parsed := extractData(t, result)
 		adults, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -533,7 +534,7 @@ func TestQuery(t *testing.T) {
 		})
 		result, err := server.handleMT(ctx, req)
 		require.NoError(t, err, "Query should not error")
-		
+
 		parsed := extractData(t, result)
 		count, ok := parsed["result"].(float64)
 		require.True(t, ok, "Result should be a number")
@@ -559,7 +560,7 @@ func TestQuery(t *testing.T) {
 		})
 		result, err := server.handleMT(ctx, req)
 		require.NoError(t, err, "Query should not error")
-		
+
 		parsed := extractData(t, result)
 		item, ok := parsed["result"].(map[string]any)
 		require.True(t, ok, "Result should be an object")
@@ -580,7 +581,7 @@ func TestErrorHandling(t *testing.T) {
 			},
 		}
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for missing operation")
 	})
@@ -588,7 +589,7 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("unknown operation", func(t *testing.T) {
 		req := makeRequest("invalid_operation", map[string]any{})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for unknown operation")
 	})
@@ -596,7 +597,7 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("missing tree parameter", func(t *testing.T) {
 		req := makeRequest("get", map[string]any{})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for missing tree")
 	})
@@ -607,20 +608,20 @@ func TestErrorHandling(t *testing.T) {
 			"path": ".",
 		})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for non-existent tree")
 	})
 
 	t.Run("missing required value parameter", func(t *testing.T) {
 		server.handleMT(ctx, makeRequest("create_tree", map[string]any{"tree": "test"}))
-		
+
 		req := makeRequest("set", map[string]any{
 			"tree": "test",
 			"path": ".field",
 		})
 		result, err := server.handleMT(ctx, req)
-		
+
 		require.NoError(t, err, "Should not return Go error")
 		assert.True(t, result.IsError, "Should return error result for missing value")
 	})
@@ -642,14 +643,14 @@ func TestConcurrency(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			go func(n int) {
 				defer func() { done <- true }()
-				
+
 				req := makeRequest("append", map[string]any{
 					"tree":  "concurrent",
 					"path":  ".items",
 					"value": n,
 				})
 				result, err := server.handleMT(ctx, req)
-				
+
 				// Each operation should succeed
 				assert.NoError(t, err, "Concurrent append should not error")
 				assert.False(t, result.IsError, "Concurrent append should succeed")
@@ -668,7 +669,7 @@ func TestConcurrency(t *testing.T) {
 		})
 		result, err := server.handleMT(ctx, req)
 		require.NoError(t, err, "Final get should not error")
-		
+
 		parsed := extractData(t, result)
 		items, ok := parsed["data"].([]any)
 		require.True(t, ok, "Data should be an array")
@@ -682,7 +683,7 @@ func TestConcurrency(t *testing.T) {
 		}))
 
 		done := make(chan bool)
-		
+
 		// Concurrent sets
 		for i := 0; i < 5; i++ {
 			go func(n int) {
@@ -694,7 +695,7 @@ func TestConcurrency(t *testing.T) {
 				}))
 			}(i)
 		}
-		
+
 		// Concurrent appends
 		for i := 0; i < 5; i++ {
 			go func(n int) {
@@ -730,7 +731,7 @@ func TestPersistence(t *testing.T) {
 		// Create server in immediate mode
 		server, err := NewMTServer(tmpDir, "immediate")
 		require.NoError(t, err)
-		
+
 		// Create and modify tree
 		server.handleMT(ctx, makeRequest("create_tree", map[string]any{
 			"tree": "test1",
@@ -741,14 +742,14 @@ func TestPersistence(t *testing.T) {
 			"path":  ".counter",
 			"value": 42,
 		}))
-		
+
 		// Shutdown and create new server instance
 		server.Shutdown()
-		
+
 		server2, err := NewMTServer(tmpDir, "immediate")
 		require.NoError(t, err)
 		defer server2.Shutdown()
-		
+
 		// Verify data was loaded
 		result, err := server2.handleMT(ctx, makeRequest("get", map[string]any{
 			"tree": "test1",
@@ -763,31 +764,31 @@ func TestPersistence(t *testing.T) {
 		tmpDir2, err := os.MkdirTemp("", "mt-periodic-*")
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir2)
-		
+
 		server, err := NewMTServer(tmpDir2, "periodic")
 		require.NoError(t, err)
-		
+
 		// Create tree
 		server.handleMT(ctx, makeRequest("create_tree", map[string]any{
 			"tree": "test2",
 			"data": map[string]any{"value": "initial"},
 		}))
-		
+
 		// Modify data
 		server.handleMT(ctx, makeRequest("set", map[string]any{
 			"tree":  "test2",
 			"path":  ".value",
 			"value": "updated",
 		}))
-		
+
 		// Shutdown (triggers final flush)
 		server.Shutdown()
-		
+
 		// Create new server and verify
 		server2, err := NewMTServer(tmpDir2, "periodic")
 		require.NoError(t, err)
 		defer server2.Shutdown()
-		
+
 		result, err := server2.handleMT(ctx, makeRequest("get", map[string]any{
 			"tree": "test2",
 			"path": ".value",
@@ -801,21 +802,21 @@ func TestPersistence(t *testing.T) {
 		tmpDir3, err := os.MkdirTemp("", "mt-delete-*")
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir3)
-		
+
 		server, err := NewMTServer(tmpDir3, "immediate")
 		require.NoError(t, err)
-		
+
 		// Create and then delete tree
 		server.handleMT(ctx, makeRequest("create_tree", map[string]any{"tree": "temp"}))
 		server.handleMT(ctx, makeRequest("delete_tree", map[string]any{"tree": "temp"}))
-		
+
 		server.Shutdown()
-		
+
 		// Create new server - tree should not exist
 		server2, err := NewMTServer(tmpDir3, "immediate")
 		require.NoError(t, err)
 		defer server2.Shutdown()
-		
+
 		result, err := server2.handleMT(ctx, makeRequest("list_trees", map[string]any{}))
 		require.NoError(t, err)
 		parsed := extractData(t, result)
@@ -827,12 +828,82 @@ func TestPersistence(t *testing.T) {
 		server, err := NewMTServer(tmpDir, "immediate")
 		require.NoError(t, err)
 		defer server.Shutdown()
-		
+
 		// Try to create tree with invalid characters
 		result, err := server.handleMT(ctx, makeRequest("create_tree", map[string]any{
 			"tree": "../../../etc/passwd",
 		}))
 		require.NoError(t, err)
 		assert.True(t, result.IsError, "Should reject invalid tree name")
+	})
+}
+
+func TestGeminiSearchReal(t *testing.T) {
+	if os.Getenv("GEMINI_API_KEY") == "" {
+		t.Skip("GEMINI_API_KEY not set, skipping real API test")
+	}
+
+	server, cleanup := newTestServer(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	t.Run("real gemini search API call", func(t *testing.T) {
+		req := makeRequest("gemini_search", map[string]any{
+			"query":      "What is the capital of France?",
+			"max_tokens": 100,
+		})
+		result, err := server.handleMT(ctx, req)
+
+		require.NoError(t, err, "Should not return error")
+		require.False(t, result.IsError, "Should not return error result")
+
+		data := extractData(t, result)
+		assert.True(t, data["success"].(bool), "Should indicate success")
+		assert.Equal(t, "What is the capital of France?", data["query"], "Should return query")
+		assert.Equal(t, float64(100), data["max_tokens"], "Should return max_tokens")
+
+		// Check that we got a real result from Gemini
+		resultData := data["result"]
+		assert.NotNil(t, resultData, "Should have result data")
+
+		// The result should be a map with Gemini response structure
+		if resultMap, ok := resultData.(map[string]any); ok {
+			assert.Contains(t, resultMap, "candidates", "Should have candidates field")
+
+			if candidates, ok := resultMap["candidates"].([]any); ok && len(candidates) > 0 {
+				candidate := candidates[0].(map[string]any)
+				assert.Contains(t, candidate, "content", "Candidate should have content")
+
+				// Check that the content contains a reasonable response about Paris
+				if content, ok := candidate["content"].(map[string]any); ok {
+					if parts, ok := content["parts"].([]any); ok && len(parts) > 0 {
+						if part, ok := parts[0].(map[string]any); ok {
+							if text, ok := part["text"].(string); ok {
+								// The response should mention Paris as the capital of France
+								assert.Contains(t, strings.ToLower(text), "paris", "Response should mention Paris")
+							}
+						}
+					}
+				}
+			}
+		}
+	})
+
+	t.Run("real gemini search with longer query", func(t *testing.T) {
+		req := makeRequest("gemini_search", map[string]any{
+			"query":      "Explain the basics of machine learning in simple terms",
+			"max_tokens": 200,
+		})
+		result, err := server.handleMT(ctx, req)
+
+		require.NoError(t, err, "Should not return error")
+		require.False(t, result.IsError, "Should not return error result")
+
+		data := extractData(t, result)
+		assert.True(t, data["success"].(bool), "Should indicate success")
+
+		// Check that we got a result
+		resultData := data["result"]
+		assert.NotNil(t, resultData, "Should have result data")
 	})
 }

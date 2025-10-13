@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"google.golang.org/genai"
 )
 
 var safeNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -237,7 +240,7 @@ func (s *MTServer) createTree(tree string, data json.RawMessage) error {
 		data = json.RawMessage("{}")
 	}
 	s.trees[tree] = &MemoryTree{Name: tree, Data: data}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -254,15 +257,15 @@ func (s *MTServer) deleteTree(tree string) error {
 		return fmt.Errorf("tree not found: %s", tree)
 	}
 	delete(s.trees, tree)
-	
+
 	// Delete from disk
 	if err := s.deleteTreeFile(tree); err != nil {
 		return err
 	}
-	
+
 	// Remove from dirty set if present
 	delete(s.dirtyTrees, tree)
-	
+
 	return nil
 }
 
@@ -310,7 +313,7 @@ func (s *MTServer) set(tree, path string, value json.RawMessage) error {
 	if err := s.setUnlocked(tree, path, value); err != nil {
 		return err
 	}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -345,7 +348,7 @@ func (s *MTServer) delete(tree, path string) error {
 	if err := s.deleteUnlocked(tree, path); err != nil {
 		return err
 	}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -415,7 +418,7 @@ func (s *MTServer) append(tree, path string, value json.RawMessage, window int) 
 	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
 		return err
 	}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -464,7 +467,7 @@ func (s *MTServer) prepend(tree, path string, value json.RawMessage, window int)
 	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
 		return err
 	}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -509,7 +512,7 @@ func (s *MTServer) transform(tree, targetPath, sourcePath, filter string) error 
 		}
 		t.Data = json.RawMessage(newData)
 	}
-	
+
 	// Persist immediately or mark dirty
 	if s.saveMode == "immediate" {
 		return s.saveTree(tree)
@@ -531,4 +534,36 @@ func (s *MTServer) query(tree, filter string) (json.RawMessage, error) {
 		return nil, err
 	}
 	return json.RawMessage(result), nil
+}
+
+// geminiSearch performs a Google search using Gemini AI with GoogleSearch tool
+func (s *MTServer) geminiSearch(query string, maxTokens int) (any, error) {
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey: os.Getenv("GEMINI_API_KEY"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+	}
+	response, err := client.Models.GenerateContent(ctx, "gemini-2.5-flash", []*genai.Content{
+		{
+			Role: "user",
+			Parts: []*genai.Part{
+				{
+					Text: fmt.Sprintf("Use the GoogleSearch tool to search for: %s", query),
+				},
+			},
+		},
+	}, &genai.GenerateContentConfig{
+		MaxOutputTokens: int32(maxTokens),
+		Tools: []*genai.Tool{
+			{
+				GoogleSearch: &genai.GoogleSearch{},
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("gemini generate error: %w", err)
+	}
+	return response, nil
 }

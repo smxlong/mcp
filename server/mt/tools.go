@@ -17,8 +17,8 @@ func createMTTool() mcp.Tool {
 			Type: "object",
 			Properties: map[string]any{
 				"operation": map[string]any{
-					"type": "string",
-					"enum": []string{"create_tree", "delete_tree", "list_trees", "get", "set", "delete", "append", "prepend", "transform", "query"},
+					"type":        "string",
+					"enum":        []string{"create_tree", "delete_tree", "list_trees", "get", "set", "delete", "append", "prepend", "transform", "query", "gemini_search"},
 					"description": "Operation to perform",
 				},
 				"tree": map[string]any{
@@ -46,6 +46,14 @@ func createMTTool() mcp.Tool {
 				"window": map[string]any{
 					"type":        "integer",
 					"description": "Maximum array length for append/prepend operations",
+				},
+				"query": map[string]any{
+					"type":        "string",
+					"description": "Search query for gemini_search operation",
+				},
+				"max_tokens": map[string]any{
+					"type":        "integer",
+					"description": "Maximum number of tokens for gemini_search operation",
 				},
 			},
 			Required: []string{"operation"},
@@ -175,6 +183,18 @@ func (s *MTServer) handleMT(ctx context.Context, request mcp.CallToolRequest) (*
 			var parsed any
 			json.Unmarshal(data, &parsed)
 			result = map[string]any{"success": true, "tree": tree, "filter": filter, "result": parsed}
+		}
+
+	case "gemini_search":
+		query := request.GetString("query", "")
+		if query == "" {
+			return mcp.NewToolResultError("query parameter required"), nil
+		}
+		maxTokens := request.GetInt("max_tokens", 1000) // Default to 1000 tokens if not specified
+		var searchResult any
+		searchResult, err = s.geminiSearch(query, maxTokens)
+		if err == nil {
+			result = map[string]any{"success": true, "query": query, "max_tokens": maxTokens, "result": searchResult}
 		}
 
 	default:
