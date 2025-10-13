@@ -12,14 +12,74 @@ import (
 func createMTTool() mcp.Tool {
 	return mcp.Tool{
 		Name:        "mt",
-		Description: "Unified memory tree operations supporting create, read, update, delete, array operations, transformations and queries",
+		Description: "Unified memory tree operations supporting single commands or batch arrays of commands (max 32 operations per batch)",
 		InputSchema: mcp.ToolInputSchema{
 			Type: "object",
 			Properties: map[string]any{
 				"operation": map[string]any{
 					"type":        "string",
 					"enum":        []string{"create_tree", "delete_tree", "list_trees", "get", "set", "delete", "append", "prepend", "transform", "query", "gemini_search"},
-					"description": "Operation to perform",
+					"description": "Single operation to perform (mutually exclusive with operations array)",
+				},
+				"operations": map[string]any{
+					"type":        "array",
+					"description": "Array of operations to perform in sequence (mutually exclusive with operation, max 32 operations)",
+					"maxItems":    MaxBatchOperations,
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"operation": map[string]any{
+								"type":        "string",
+								"enum":        []string{"create_tree", "delete_tree", "list_trees", "get", "set", "delete", "append", "prepend", "transform", "query", "gemini_search"},
+								"description": "Operation to perform",
+							},
+							"tree": map[string]any{
+								"type":        "string",
+								"description": "Tree name",
+							},
+							"path": map[string]any{
+								"type":        "string",
+								"description": "jq path expression (default: '.')",
+							},
+							"value": map[string]any{
+								"description": "Value for operation (JSON)",
+							},
+							"data": map[string]any{
+								"description": "Initial data for create_tree (JSON)",
+							},
+							"filter": map[string]any{
+								"type":        "string",
+								"description": "jq filter expression",
+							},
+							"source_path": map[string]any{
+								"type":        "string",
+								"description": "Source path for transform operation (default: '.')",
+							},
+							"window": map[string]any{
+								"type":        "integer",
+								"description": "Maximum array length for append/prepend operations",
+							},
+							"query": map[string]any{
+								"type":        "string",
+								"description": "Search query for gemini_search operation",
+							},
+							"max_tokens": map[string]any{
+								"type":        "integer",
+								"description": "Maximum number of tokens for gemini_search operation",
+							},
+							"verbatim": map[string]any{
+								"type":        "boolean",
+								"description": "Whether to echo result back in tool response (default: false)",
+								"default":     false,
+							},
+						},
+						"required": []string{"operation"},
+					},
+				},
+				"continue_after_errors": map[string]any{
+					"type":        "boolean",
+					"description": "Whether to continue executing remaining operations after an error (default: false)",
+					"default":     false,
 				},
 				"tree": map[string]any{
 					"type":        "string",
@@ -63,9 +123,14 @@ func createMTTool() mcp.Tool {
 
 // handleMT dispatches mt tool operations to appropriate methods
 func (s *MTServer) handleMT(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check if this is a batch operation
+	if operationsArray := request.GetArguments()["operations"]; operationsArray != nil {
+		return s.handleBatchMT(ctx, request)
+	}
+
 	operation := request.GetString("operation", "")
 	if operation == "" {
-		return mcp.NewToolResultError("operation parameter required"), nil
+		return mcp.NewToolResultError("operation or operations array required"), nil
 	}
 
 	tree := request.GetString("tree", "")
