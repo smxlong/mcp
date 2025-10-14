@@ -1,4 +1,4 @@
-module github.com/vuduvibe/mcp
+module github.com/smxlong/mcp
 
 go 1.25.1
 
