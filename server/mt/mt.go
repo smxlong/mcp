@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -78,9 +79,18 @@ func (s *MTServer) Shutdown() error {
 }
 
 func main() {
+	// Command-line flags
+	dataDirFlag := flag.String("data-dir", "", "Directory for storing tree data (overridden by DATA_DIR environment variable if set)")
+	flag.Parse()
+
+	// Determine data directory: env var takes precedence, then flag, then default
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {
-		dataDir = "./data"
+		if *dataDirFlag != "" {
+			dataDir = *dataDirFlag
+		} else {
+			dataDir = "./data"
+		}
 	}
 
 	saveMode := os.Getenv("SAVE_MODE")

@@ -35,7 +35,6 @@ class MTClient:
     def __enter__(self):
         """Start the MT server process."""
         env = os.environ.copy()
-        env['DATA_DIR'] = self.data_dir
         env['SAVE_MODE'] = self.save_mode
         
         # Start the MT server
@@ -44,8 +43,9 @@ class MTClient:
             '..', 'server', 'mt', 'mt'
         )
         
+        # Use command-line flag for data directory instead of env var
         self.process = subprocess.Popen(
-            [server_path],
+            [server_path, '-data-dir', self.data_dir],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
