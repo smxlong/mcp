@@ -5,6 +5,7 @@ This module provides reusable functions for interacting with the MT server
 via stdio transport protocol.
 """
 
+import argparse
 import json
 import subprocess
 import sys
@@ -228,3 +229,22 @@ def print_header(title: str):
     print(f"\n{'#'*60}")
     print(f"# {title}")
     print(f"{'#'*60}\n")
+
+
+def parse_example_args(description: str) -> argparse.Namespace:
+    """
+    Parse common command-line arguments for examples.
+    
+    Args:
+        description: Description of the example for --help
+        
+    Returns:
+        Parsed arguments namespace with 'no_clean' boolean attribute
+    """
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        '--no-clean',
+        action='store_true',
+        help='Do not delete trees at the end (preserves persisted data)'
+    )
+    return parser.parse_args()

@@ -8,6 +8,9 @@ This example demonstrates:
 - Batch operations for efficient tree construction
 - Advanced filtering with arrays and nested objects
 - Aggregation queries across hierarchy levels
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -15,11 +18,13 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def main():
     """Run the hierarchical data organization example."""
+    
+    args = parse_example_args("Example 2: Hierarchical Data Organization")
     
     print_header("Example 2: Hierarchical Data Organization")
     
@@ -266,8 +271,11 @@ def main():
         
         # Clean up
         print_header("Complete!")
-        result = client.call_tool(operation="delete_tree", tree="projects")
-        print_result("Cleaned up", client.extract_result(result))
+        if not args.no_clean:
+            result = client.call_tool(operation="delete_tree", tree="projects")
+            print_result("Cleaned up", client.extract_result(result))
+        else:
+            print(f"✓ Tree 'projects' preserved in {output_dir}/trees/projects.json")
         
         print("\n" + "="*60)
         print("Key Concepts Demonstrated:")

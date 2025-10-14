@@ -8,6 +8,9 @@ This example demonstrates:
 - Time-based queries and aggregations
 - Rolling calculations and trend analysis
 - Multi-metric monitoring with batch operations
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -17,7 +20,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def generate_metrics(base_time, count, metric_name, base_value, variance):
@@ -38,6 +41,8 @@ def generate_metrics(base_time, count, metric_name, base_value, variance):
 
 def main():
     """Run the time-series data example."""
+    
+    args = parse_example_args("Example 3: Time-Series Data & Window Management")
     
     print_header("Example 3: Time-Series Data & Window Management")
     
@@ -370,8 +375,11 @@ def main():
         
         # Clean up
         print_header("Complete!")
-        result = client.call_tool(operation="delete_tree", tree="monitoring")
-        print_result("Cleaned up", client.extract_result(result))
+        if not args.no_clean:
+            result = client.call_tool(operation="delete_tree", tree="monitoring")
+            print_result("Cleaned up", client.extract_result(result))
+        else:
+            print(f"✓ Tree 'monitoring' preserved in {output_dir}/trees/monitoring.json")
         
         print("\n" + "="*60)
         print("Key Concepts Demonstrated:")

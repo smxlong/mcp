@@ -9,6 +9,9 @@ This example demonstrates:
 - Temporal queries (point-in-time state)
 - Event aggregation and replay
 - Audit trails and history tracking
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -18,7 +21,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def create_event(event_type, entity_id, data, timestamp=None):
@@ -36,6 +39,8 @@ def create_event(event_type, entity_id, data, timestamp=None):
 
 def main():
     """Run the event sourcing example."""
+    
+    args = parse_example_args("Example 5: Event Sourcing & State Machines")
     
     print_header("Example 5: Event Sourcing & State Machines")
     
@@ -331,8 +336,11 @@ def main():
         
         # Clean up
         print_header("Complete!")
-        result = client.call_tool(operation="delete_tree", tree="events")
-        print_result("Cleaned up", client.extract_result(result))
+        if not args.no_clean:
+            result = client.call_tool(operation="delete_tree", tree="events")
+            print_result("Cleaned up", client.extract_result(result))
+        else:
+            print(f"✓ Tree 'events' preserved in {output_dir}/trees/events.json")
         
         print("\n" + "="*60)
         print("Key Concepts Demonstrated:")

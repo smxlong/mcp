@@ -9,6 +9,9 @@ This example demonstrates:
 - Pivot operations
 - Multi-dimensional filtering
 - Advanced grouping and cross-tabulation
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -19,7 +22,7 @@ import random
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def generate_sales_data(count=50):
@@ -59,6 +62,8 @@ def generate_sales_data(count=50):
 
 def main():
     """Run the multi-dimensional analysis example."""
+    
+    args = parse_example_args("Example 6: Multi-Dimensional Analysis (OLAP-style)")
     
     print_header("Example 6: Multi-Dimensional Analysis (OLAP-style)")
     
@@ -356,8 +361,11 @@ def main():
         
         # Clean up
         print_header("Complete!")
-        result = client.call_tool(operation="delete_tree", tree="cube")
-        print_result("Cleaned up", client.extract_result(result))
+        if not args.no_clean:
+            result = client.call_tool(operation="delete_tree", tree="cube")
+            print_result("Cleaned up", client.extract_result(result))
+        else:
+            print(f"✓ Tree 'cube' preserved in {output_dir}/trees/cube.json")
         
         print("\n" + "="*60)
         print("Key Concepts Demonstrated:")

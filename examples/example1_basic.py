@@ -7,6 +7,9 @@ This example demonstrates:
 - Using batch operations to set multiple values
 - Querying data
 - Listing and deleting trees
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -15,11 +18,13 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def main():
     """Run the basic batch operations example."""
+    
+    args = parse_example_args("Example 1: Basic Batch Operations")
     
     print_header("Example 1: Basic Batch Operations")
     
@@ -129,20 +134,27 @@ def main():
         print_result("Available trees", list_data)
         
         # Step 6: Clean up - delete the tree
-        print_header("Step 6: Clean Up")
-        
-        delete_result = client.call_tool(
-            operation="delete_tree",
-            tree="project"
-        )
-        delete_data = client.extract_result(delete_result)
-        print_result("Deleted tree 'project'", delete_data)
+        if not args.no_clean:
+            print_header("Step 6: Clean Up")
+            
+            delete_result = client.call_tool(
+                operation="delete_tree",
+                tree="project"
+            )
+            delete_data = client.extract_result(delete_result)
+            print_result("Deleted tree 'project'", delete_data)
+        else:
+            print_header("Step 6: Preservation")
+            print(f"✓ Tree 'project' preserved in {output_dir}/trees/project.json")
         
         print_header("Example Complete!")
         print("✓ Demonstrated tree creation")
         print("✓ Demonstrated batch operations")
         print("✓ Demonstrated queries")
-        print("✓ Demonstrated cleanup")
+        if not args.no_clean:
+            print("✓ Demonstrated cleanup")
+        else:
+            print("✓ Preserved tree data for inspection")
 
 
 if __name__ == "__main__":

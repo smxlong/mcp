@@ -9,6 +9,9 @@ This example demonstrates:
 - Path traversal and reachability queries
 - Subgraph extraction
 - Semantic queries across relationships
+
+Command-line options:
+  --no-clean    Preserve trees after completion (leaves persisted data)
 """
 
 import sys
@@ -17,12 +20,13 @@ import json
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mt_common import MTClient, print_header, print_result
+from mt_common import MTClient, print_header, print_result, parse_example_args
 
 
 def main():
     """Run the knowledge graph example."""
     
+    args = parse_example_args("Example 4: Knowledge Graph and Semantic Relationships")
     print_header("Example 4: Knowledge Graph & Semantic Relationships")
     
     output_dir = os.path.join(
@@ -393,8 +397,11 @@ def main():
         
         # Clean up
         print_header("Complete!")
-        result = client.call_tool(operation="delete_tree", tree="knowledge")
-        print_result("Cleaned up", client.extract_result(result))
+        if not args.no_clean:
+            result = client.call_tool(operation="delete_tree", tree="knowledge")
+            print_result("Cleaned up", client.extract_result(result))
+        else:
+            print(f"✓ Tree 'knowledge' preserved in {output_dir}/trees/knowledge.json")
         
         print("\n" + "="*60)
         print("Key Concepts Demonstrated:")
