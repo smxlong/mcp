@@ -371,7 +371,7 @@ func (s *MTServer) executeSingleBatchOpLocked(ctx context.Context, op BatchOpera
 		return result
 
 	case "query":
-		data, err := s.query(op.Tree, op.Filter)
+		data, err := s.queryUnlocked(op.Tree, op.Filter)
 		if err != nil {
 			result.Error = err.Error()
 			return result

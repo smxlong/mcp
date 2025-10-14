@@ -525,6 +525,10 @@ func (s *MTServer) transform(tree, targetPath, sourcePath, filter string) error 
 func (s *MTServer) query(tree, filter string) (json.RawMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.queryUnlocked(tree, filter)
+}
+
+func (s *MTServer) queryUnlocked(tree, filter string) (json.RawMessage, error) {
 	t, exists := s.trees[tree]
 	if !exists {
 		return nil, fmt.Errorf("tree not found: %s", tree)
