@@ -20,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV DATA_DIR=/data
 RUN mkdir -p $DATA_DIR
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tini && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates jq tini && rm -rf /var/lib/apt/lists/*
 
 ######################## mt image
 
