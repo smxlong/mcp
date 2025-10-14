@@ -35,6 +35,82 @@ python3 example1_basic.py
 
 **Output:** Creates a `project` tree in `output/example1_basic/` with metadata, tags, and author information.
 
+### Example 2: Hierarchical Data Organization (`example2_hierarchical.py`)
+
+Demonstrates sophisticated hierarchy management:
+- Multi-level hierarchical structures (workspace → projects → tasks → subtasks)
+- Efficient batch construction of complex hierarchies using append
+- Navigation with jq path expressions
+- Filtering with select() and conditional logic
+- Aggregation functions (add, length, unique)
+- Complex nested queries with object construction
+- Data transformation for alternative views (e.g., by-assignee view)
+- Group-by operations for data reorganization
+
+**Key Concepts:** Hierarchical data modeling, complex jq queries, data transformation
+
+### Example 3: Time-Series Data & Window Management (`example3_timeseries.py`)
+
+Demonstrates time-series patterns:
+- Time-series data structures with bounded memory
+- Window management with append/prepend operations (keep last N items)
+- Batch ingestion for high-throughput scenarios
+- Statistical aggregations (avg, min, max)
+- Group-by operations on nested tags
+- Rolling calculations and trend analysis
+- Alert condition detection with filtering
+- Reverse chronological ordering with prepend
+- Transform operations for derived metrics
+
+**Key Concepts:** Windowed arrays, metrics aggregation, trend detection
+
+### Example 4: Knowledge Graph & Semantic Relationships (`example4_knowledge_graph.py`)
+
+Demonstrates graph data modeling:
+- Entity-relationship patterns (nodes and edges in JSON)
+- Batch entity and relationship creation
+- Index building for optimized type-based lookups
+- Semantic queries across graph connections
+- Path traversal and reachability queries
+- Subgraph extraction centered on entities
+- Graph analytics (degree centrality, relationship distribution)
+- Dynamic graph updates (adding entities and relationships)
+- Complex multi-hop jq filters for graph traversal
+- Group-by operations on relationships
+
+**Key Concepts:** Graph structures, entity-relationships, semantic queries
+
+### Example 5: Event Sourcing & State Machines (`example5_event_sourcing.py`)
+
+Demonstrates event-driven architecture:
+- Event sourcing with immutable event logs
+- State reconstruction from event streams
+- State machine modeling and transition validation
+- Point-in-time queries for historical state
+- Event aggregation and analytics
+- Complete audit trails and history tracking
+- Event replay and pattern detection
+- Temporal queries across time ranges
+- Lifecycle duration analysis
+
+**Key Concepts:** Event sourcing, immutable logs, temporal queries, state machines
+
+### Example 6: Multi-Dimensional Analysis (`example6_multidimensional.py`)
+
+Demonstrates OLAP-style analytics:
+- Multi-dimensional data cube modeling
+- Fact and dimension table structures
+- Slice operations (single dimension filter)
+- Dice operations (multi-dimension filter)
+- Roll-up aggregations (to higher level)
+- Drill-down analysis (to detailed level)
+- Pivot operations (cross-tabulation)
+- Pre-computed aggregations for performance
+- Temporal dimension analysis
+- Complex multi-measure analytics
+
+**Key Concepts:** Data cubes, OLAP operations, dimensional modeling
+
 ## Output Directory Structure
 
 Each example saves its tree data to a dedicated subdirectory under `output/`:

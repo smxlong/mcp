@@ -200,8 +200,8 @@ func jqSet(input []byte, path, value string) ([]byte, error) {
 	if path == "" || path == "." {
 		return []byte(value), nil
 	}
-	// Use jq's setpath function for safe nested updates
-	filter := fmt.Sprintf("setpath(%s; %s)", pathToArray(path), value)
+	// Just use jq's native assignment syntax - let jq handle the path parsing
+	filter := fmt.Sprintf("%s = %s", path, value)
 	cmd := exec.Command("jq", "-c", filter)
 	cmd.Stdin = strings.NewReader(string(input))
 	output, err := cmd.CombinedOutput()
@@ -209,27 +209,6 @@ func jqSet(input []byte, path, value string) ([]byte, error) {
 		return nil, fmt.Errorf("jq error: %s", strings.TrimSpace(string(output)))
 	}
 	return output, nil
-}
-
-// pathToArray converts jq path to array format for setpath
-func pathToArray(path string) string {
-	if path == "." {
-		return "[]"
-	}
-	// Simple conversion: .a.b.c -> ["a","b","c"]
-	parts := strings.Split(strings.TrimPrefix(path, "."), ".")
-	quoted := make([]string, len(parts))
-	for i, p := range parts {
-		// Handle array indices
-		if strings.Contains(p, "[") {
-			p = strings.ReplaceAll(p, "[", `",`)
-			p = strings.ReplaceAll(p, "]", `,"`)
-			quoted[i] = p
-		} else {
-			quoted[i] = fmt.Sprintf(`"%s"`, p)
-		}
-	}
-	return "[" + strings.Join(quoted, ",") + "]"
 }
 
 // createTree creates a new tree with optional initial data
