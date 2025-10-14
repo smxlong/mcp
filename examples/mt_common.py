@@ -191,7 +191,15 @@ class MTClient:
         if "content" in response:
             for content_item in response["content"]:
                 if content_item.get("type") == "text":
-                    return json.loads(content_item["text"])
+                    text = content_item["text"]
+                    if not text or text.strip() == "":  # Empty response
+                        return {}
+                    try:
+                        return json.loads(text)
+                    except json.JSONDecodeError as e:
+                        print(f"Warning: Failed to parse response text: {repr(text[:100])}")
+                        print(f"Error: {e}")
+                        return {"error": "parse_failed", "raw": text}
         return response
 
 

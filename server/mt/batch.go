@@ -329,7 +329,7 @@ func (s *MTServer) executeSingleBatchOpLocked(ctx context.Context, op BatchOpera
 		if path == "" {
 			path = "."
 		}
-		err := s.append(op.Tree, path, op.Value, op.Window)
+		err := s.appendUnlocked(op.Tree, path, op.Value, op.Window)
 		if err != nil {
 			result.Error = err.Error()
 			return result
@@ -343,7 +343,7 @@ func (s *MTServer) executeSingleBatchOpLocked(ctx context.Context, op BatchOpera
 		if path == "" {
 			path = "."
 		}
-		err := s.prepend(op.Tree, path, op.Value, op.Window)
+		err := s.prependUnlocked(op.Tree, path, op.Value, op.Window)
 		if err != nil {
 			result.Error = err.Error()
 			return result
@@ -361,7 +361,7 @@ func (s *MTServer) executeSingleBatchOpLocked(ctx context.Context, op BatchOpera
 		if targetPath == "" {
 			targetPath = "."
 		}
-		err := s.transform(op.Tree, targetPath, sourcePath, op.Filter)
+		err := s.transformUnlocked(op.Tree, targetPath, sourcePath, op.Filter)
 		if err != nil {
 			result.Error = err.Error()
 			return result

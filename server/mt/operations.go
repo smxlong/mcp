@@ -380,6 +380,10 @@ func (s *MTServer) deleteUnlocked(tree, path string) error {
 func (s *MTServer) append(tree, path string, value json.RawMessage, window int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.appendUnlocked(tree, path, value, window)
+}
+
+func (s *MTServer) appendUnlocked(tree, path string, value json.RawMessage, window int) error {
 	t, exists := s.trees[tree]
 	if !exists {
 		return fmt.Errorf("tree not found: %s", tree)
@@ -415,22 +419,17 @@ func (s *MTServer) append(tree, path string, value json.RawMessage, window int) 
 
 	// Marshal back
 	newArr, _ := json.Marshal(arr)
-	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
-		return err
-	}
-
-	// Persist immediately or mark dirty
-	if s.saveMode == "immediate" {
-		return s.saveTree(tree)
-	}
-	s.markDirty(tree)
-	return nil
+	return s.setUnlocked(tree, path, json.RawMessage(newArr))
 }
 
 // prepend adds items to beginning of array at path with optional window limit
 func (s *MTServer) prepend(tree, path string, value json.RawMessage, window int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.prependUnlocked(tree, path, value, window)
+}
+
+func (s *MTServer) prependUnlocked(tree, path string, value json.RawMessage, window int) error {
 	t, exists := s.trees[tree]
 	if !exists {
 		return fmt.Errorf("tree not found: %s", tree)
@@ -464,22 +463,17 @@ func (s *MTServer) prepend(tree, path string, value json.RawMessage, window int)
 
 	// Marshal back
 	newArr, _ := json.Marshal(arr)
-	if err := s.setUnlocked(tree, path, json.RawMessage(newArr)); err != nil {
-		return err
-	}
-
-	// Persist immediately or mark dirty
-	if s.saveMode == "immediate" {
-		return s.saveTree(tree)
-	}
-	s.markDirty(tree)
-	return nil
+	return s.setUnlocked(tree, path, json.RawMessage(newArr))
 }
 
 // transform applies jq filter to source path and stores result at target path
 func (s *MTServer) transform(tree, targetPath, sourcePath, filter string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.transformUnlocked(tree, targetPath, sourcePath, filter)
+}
+
+func (s *MTServer) transformUnlocked(tree, targetPath, sourcePath, filter string) error {
 	t, exists := s.trees[tree]
 	if !exists {
 		return fmt.Errorf("tree not found: %s", tree)
@@ -513,11 +507,6 @@ func (s *MTServer) transform(tree, targetPath, sourcePath, filter string) error 
 		t.Data = json.RawMessage(newData)
 	}
 
-	// Persist immediately or mark dirty
-	if s.saveMode == "immediate" {
-		return s.saveTree(tree)
-	}
-	s.markDirty(tree)
 	return nil
 }
 
