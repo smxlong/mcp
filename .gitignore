@@ -1,0 +1,11 @@
+# Build output
+bin/
+dist/
+
+# Local state written by a server run from its source directory
+*-kb.json
+*-kb.json.tmp
+
+# Editor and OS noise
+.DS_Store
+*.swp
