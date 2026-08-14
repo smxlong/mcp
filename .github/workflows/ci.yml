@@ -18,7 +18,7 @@ jobs:
     name: test (prolog)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # The tests drive a real swipl, so they run in the image that has one.
       - run: make test-docker
         working-directory: prolog
@@ -27,7 +27,7 @@ jobs:
     name: lint (prolog)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: prolog/go.mod
@@ -46,7 +46,7 @@ jobs:
     name: build (prolog)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
         with:
           go-version-file: prolog/go.mod
