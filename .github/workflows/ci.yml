@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (prolog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The tests drive a real swipl, so they run in the image that has one.
+      - run: make test-docker
+        working-directory: prolog
+
+  lint:
+    name: lint (prolog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: prolog/go.mod
+          cache-dependency-path: prolog/go.sum
+      - name: go.mod is tidy
+        run: go mod tidy -diff
+        working-directory: prolog
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+        working-directory: prolog
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: prolog
+
+  build:
+    name: build (prolog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: prolog/go.mod
+          cache-dependency-path: prolog/go.sum
+      - run: make build
+        working-directory: prolog
+      - name: container image builds
+        run: docker build --build-arg VERSION=ci .
+        working-directory: prolog

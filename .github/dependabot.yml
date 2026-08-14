@@ -1,0 +1,23 @@
+# syntax reference: https://docs.github.com/code-security/dependabot
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /prolog
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(prolog)"
+
+  - package-ecosystem: docker
+    directory: /prolog
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(prolog)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
