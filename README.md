@@ -8,12 +8,9 @@ between them except the conventions described below.
 
 ## Servers
 
-| Server | Directory | What it does |
-| --- | --- | --- |
+| Server              | Directory | What it does                                                                               |
+| ------------------- | --------- | ------------------------------------------------------------------------------------------ |
 | [mcprolog](prolog/) | `prolog/` | A persistent SWI-Prolog knowledge base an agent can query, prove and explain goals against |
-
-`attic/` holds earlier experiments. It is kept for reference, is not built or
-tested, and should not be used.
 
 ## Conventions
 

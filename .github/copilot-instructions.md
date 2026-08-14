@@ -1,8 +1,7 @@
 # Copilot instructions
 
 This repository hosts Model Context Protocol servers. Each server lives in its
-own top-level directory and is self-contained. `attic/` is dead code kept for
-reference: do not read it for patterns, and do not change it.
+own top-level directory and is self-contained.
 
 ## Layout
 
