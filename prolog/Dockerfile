@@ -4,7 +4,7 @@
 # dev: SWI-Prolog runtime plus the Go toolchain, for `go test`. The tests drive
 # a real swipl binary rather than a mock, so they need both.
 # ---------------------------------------------------------------------------
-FROM swipl:10.0.2 AS dev
+FROM swipl:10.1.13 AS dev
 COPY --from=golang:1.25-bookworm /usr/local/go /usr/local/go
 # gcc is needed by the race detector, which the concurrency tests rely on.
 RUN apt-get update \
@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 # runtime: SWI-Prolog plus the server binary. driver.pl is embedded in the
 # binary with go:embed, so nothing else needs to be copied.
 # ---------------------------------------------------------------------------
-FROM swipl:10.0.2 AS runtime
+FROM swipl:10.1.13 AS runtime
 ARG VERSION=devel
 LABEL org.opencontainers.image.title="mcprolog" \
       org.opencontainers.image.description="MCP server exposing SWI-Prolog as logic tools" \
