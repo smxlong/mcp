@@ -19,7 +19,7 @@ WORKDIR /src
 # build: compile a static binary for the target platform. Cross-compiling from
 # the build platform keeps multi-arch builds out of emulation.
 # ---------------------------------------------------------------------------
-FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=devel
