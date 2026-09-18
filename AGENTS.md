@@ -10,6 +10,10 @@ own top-level directory and is self-contained.
   - `internal/mcprolog/` — the server: knowledge base, SWI-Prolog runner, tools.
   - `internal/mcprolog/driver.pl` — the Prolog side, embedded with `go:embed`.
 
+## Starting
+
+Read README.md and CONTRIBUTING.md
+
 ## Working here
 
 - Build and test from the server's directory, not the repository root.
@@ -33,6 +37,15 @@ own top-level directory and is self-contained.
   `library(sandbox)`, directives are filtered separately, and every run is
   bounded by a time limit, a stack limit and a fresh process.
 
+## Cohesive framework and family, not dumping ground
+
+The MCP servers here are meant to share a common core. That means the business
+logic is pinned between two shared aspects: the framework, which provides the
+harness and body shape of the server in an opinionated way, and the libraries,
+which provide the opinionated and valuable mixed-in behaviors that are
+shared across different servers. The logic of a given server is held elegantly
+in a harness in the middle. That's the vision.
+
 ## Commits and releases
 
 - [Conventional Commits](https://www.conventionalcommits.org), scoped by
@@ -42,3 +55,14 @@ own top-level directory and is self-contained.
   `CHANGELOG.md` in the commit being tagged.
 - Do not describe how the code was written, or by whom, in comments, commit
   messages or documentation.
+
+## The smxlong/skills/coding/mcp-go skill
+
+At https://github.com/smxlong/skills is a directory of skills. The `coding/mcp-go`
+skill gives guidance on proper development of MCP servers in Go (such as is done
+in this repo itself). Consult and maintain this skill as the source of truth for
+MCP development. You own the text under `coding/mcp-go` in that repo. Push
+branches and open PRs against it as needed. The skill is public, so you're
+helping the world when you improve it.
+
+Quickly read the skill with `gh api repos/smxlong/skills/contents/coding/mcp-go/SKILL.md --jq '.content' | base64 -d`.

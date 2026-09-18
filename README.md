@@ -6,11 +6,16 @@ This repository is where my MCP work lives. Each server is a self-contained
 directory with its own build, tests and release cycle; nothing is shared
 between them except the conventions described below.
 
+## Agents
+
+This doc is the correct starting point. Also load CONTRIBUTING.md before beginning the session.
+
 ## Servers
 
 | Server              | Directory | What it does                                                                               |
 | ------------------- | --------- | ------------------------------------------------------------------------------------------ |
 | [mcprolog](prolog/) | `prolog/` | A persistent SWI-Prolog knowledge base an agent can query, prove and explain goals against |
+| [ScoreTex](scoretex/) | `scoretex/` | Revisioned musical score authoring, editing, validation and semantic rendering |
 
 ## Conventions
 

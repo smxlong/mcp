@@ -1,9 +1,13 @@
-name: CI
+name: CI (prolog)
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'prolog/**'
   pull_request:
+    paths:
+      - 'prolog/**'
   workflow_dispatch:
 
 permissions:

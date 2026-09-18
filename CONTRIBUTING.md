@@ -15,6 +15,9 @@ make test-docker   # tests need a full SWI-Prolog; this runs them in one
 `make test` runs the same tests directly, and needs SWI-Prolog installed with
 its standard libraries (Debian's `swi-prolog-core` alone is not enough).
 
+For ScoreTex, run `cd scoretex`, then `make test-docker` and `make validate`.
+The validation script demonstrates the complete supported API through stdio MCP.
+
 ## Pull requests
 
 - Keep changes focused; unrelated cleanups belong in their own commit.
@@ -36,3 +39,9 @@ git push origin prolog/v0.1.0
 The release workflow builds the binaries and container image, attaches
 checksums, and publishes a GitHub release. Update that server's `CHANGELOG.md`
 in the commit you tag.
+
+## Agentic skill
+
+Agents should read:
+
+https://raw.githubusercontent.com/smxlong/skills/refs/heads/main/coding/mcp-go/SKILL.md

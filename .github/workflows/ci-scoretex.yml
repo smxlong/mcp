@@ -1,0 +1,42 @@
+name: CI (scoretex)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scoretex/**'
+      - 'scoretex_v1alpha1_1.md'
+  pull_request:
+    paths:
+      - 'scoretex/**'
+      - 'scoretex_v1alpha1_1.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-scoretex-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test and lint (scoretex)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: scoretex/go.mod
+          cache-dependency-path: scoretex/go.sum
+      - run: go mod tidy -diff
+        working-directory: scoretex
+      - run: test -z "$(gofmt -l .)"
+        working-directory: scoretex
+      - run: make test-docker
+        working-directory: scoretex
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: scoretex
+      - run: make image
+        working-directory: scoretex
