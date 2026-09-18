@@ -15,6 +15,9 @@ make test-docker   # tests need a full SWI-Prolog; this runs them in one
 `make test` runs the same tests directly, and needs SWI-Prolog installed with
 its standard libraries (Debian's `swi-prolog-core` alone is not enough).
 
+For ScoreTex, run `cd scoretex`, then `make test-docker` and `make validate`.
+The validation script demonstrates the complete supported API through stdio MCP.
+
 ## Pull requests
 
 - Keep changes focused; unrelated cleanups belong in their own commit.
