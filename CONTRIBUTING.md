@@ -36,3 +36,9 @@ git push origin prolog/v0.1.0
 The release workflow builds the binaries and container image, attaches
 checksums, and publishes a GitHub release. Update that server's `CHANGELOG.md`
 in the commit you tag.
+
+## Agentic skill
+
+Agents should read:
+
+https://raw.githubusercontent.com/smxlong/skills/refs/heads/main/coding/mcp-go/SKILL.md

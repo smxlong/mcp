@@ -6,6 +6,10 @@ This repository is where my MCP work lives. Each server is a self-contained
 directory with its own build, tests and release cycle; nothing is shared
 between them except the conventions described below.
 
+## Agents
+
+This doc is the correct starting point. Also load CONTRIBUTING.md before beginning the session.
+
 ## Servers
 
 | Server              | Directory | What it does                                                                               |
