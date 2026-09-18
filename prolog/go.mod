@@ -3,7 +3,7 @@ module github.com/smxlong/mcp/prolog
 go 1.25.6
 
 require (
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/stretchr/testify v1.11.1
 )
 
